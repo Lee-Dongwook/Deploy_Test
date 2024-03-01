@@ -21,6 +21,64 @@
   - SSL/TLS를 통한 데이터 암호화 및 사용자 인증, 접근 제어를 제공하며 AWS WAF와 통합하여 웸 애플리케이션 방화벽을 통해 보안을 강화할 수 있음
 ***
 
+## 과정
+
+### 1. S3 버킷을 생성한다.
+- ### 1-1. 객체 소유권 - ACL(엑세스 제어 목록)을 활성화하고, 객체 라이터가 객체 소유자로 유지되도록 설정
+- ### 1-2. 버킷의 퍼블릭 엑세스 차단 설정을 모두 해제하여 객체를 퍼블릭 상태로 만든다.
+- ### 1-3. [속성] 탭의 정적 웹 사이트 호스팅을 활성화 한다.
+- ### 1-4. 버킷 정책의 권한을 다음과 같이 지정한다.
+  ```json
+    {
+	    "Version": "2012-10-17",
+	    "Statement": [
+		    {
+			    "Sid": "Statement1",
+			    "Principal": "*",
+			    "Effect": "Allow",
+			    "Action": [
+				    "s3:GetObject"
+			    ],
+			    "Resource": [
+				    "arn:aws:s3:::<버킷이름>/*"
+			    ]
+		    }
+	    ]
+    }
+  ```
+
+### 2. CloudFront를 배포한다.
+- ### 2-1. 원본 도메인을 지정하고, 원본 엑세스 제어 설정을 하여 OAC(Origin Access Control)을 설정한다.
+- ### 2-2. 기본 캐시 동작의 뷰어 프로토콜 정책, HTTP 허용 정책, 캐시 키 및 원본 요청 등을 설정한다.
+- ### 2-3. 웹 애플리케이션 방화벽(WAF) 설정을 한다.
+- ### 2-4. CNAME, SSL 인증서, 기본값 루트 객체 등을 설정하고 배포를 생성한다.
+- ### 2-5. S3 버킷 정책의 권한을 다음으로 수정한다.
+```json
+{
+        "Version": "2008-10-17",
+        "Id": "PolicyForCloudFrontPrivateContent",
+        "Statement": [
+            {
+                "Sid": "AllowCloudFrontServicePrincipal",
+                "Effect": "Allow",
+                "Principal": {
+                    "Service": "cloudfront.amazonaws.com"
+                },
+                "Action": "s3:GetObject",
+                "Resource": "arn:aws:s3:::<버킷이름>/*",
+                "Condition": {
+                    "StringEquals": {
+                      "AWS:SourceArn": "arn:aws:cloudfront::<계정id>:distribution/<배포id>"
+                    }
+                }
+            }
+        ]
+      }
+```
+
+*** 
+
+
 ## 실제 배포 예시
 
 ### 실제 S3 버킷 주소를 입력하여 접근 시 403 에러 발생 
